@@ -50,7 +50,7 @@ public class CicdPipelineCdkStack extends Stack {
                 .build();
 
         var cdkCodeSourceAction = GitHubSourceAction.Builder.create()
-                .actionName("twitch-spring-microservice-source")
+                .actionName("kubernetes-resource-source")
                 .owner("muhammadwasay")
                 .repo("cicd-pipeline-cdk")
                 .oauthToken(SecretValue.secretsManager("arn:aws:secretsmanager:us-east-1:481137230390:secret:mwk-github-repo-access-token-JifB2P",
