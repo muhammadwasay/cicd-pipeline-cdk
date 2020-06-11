@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto11
+  pre_build:
+    commands:
+      - echo pre build started on `date`
+  build:
+    commands:
+      - echo Build started on `date`
+      - mvn clean compile
+      - cdk synth
+  post_build:
+    commands:
+      - echo Build completed on `date`
+artifacts:
+  files:
+    - cdk.out/KubernetesResourceCdkStack.template.json

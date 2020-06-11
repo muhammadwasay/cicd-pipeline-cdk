@@ -6,8 +6,8 @@ public class CicdPipelineCdkApp {
     public static void main(final String[] args) {
         App app = new App();
 
-        //TwitchMicroserviceCdkStack twitchMicroserviceCdkStack = new TwitchMicroserviceCdkStack(app, "TwitchMicroserviceCdkStack");
-        new CicdPipelineCdkStack(app, "CicdPipelineCdkStack", null);
+        new KubernetesResourceCdkStack(app, "KubernetesResourceCdkStack");
+        new CicdPipelineCdkStack(app, "CicdPipelineCdkStack");
 
         app.synth();
     }
