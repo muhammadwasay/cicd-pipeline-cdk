@@ -46,7 +46,7 @@ public class CicdPipelineCdkStack extends Stack {
                 .output(springCodeSourceOutput)
                 .branch("master")
                 .trigger(GitHubTrigger.WEBHOOK)
-                .variablesNamespace("MyNamespace")
+                .variablesNamespace("springSource")
                 .build();
 
         var cdkCodeSourceAction = GitHubSourceAction.Builder.create()
@@ -58,7 +58,7 @@ public class CicdPipelineCdkStack extends Stack {
                 .output(cdkCodeSourceOutput)
                 .branch("master")
                 .trigger(GitHubTrigger.NONE)
-                .variablesNamespace("MyNamespace")
+                .variablesNamespace("kubernetesSource")
                 .build();
 
         var sourceStage = StageOptions
