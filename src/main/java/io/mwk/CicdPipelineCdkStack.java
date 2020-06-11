@@ -9,12 +9,10 @@ import software.amazon.awscdk.services.codepipeline.actions.CloudFormationCreate
 import software.amazon.awscdk.services.codepipeline.actions.CodeBuildAction;
 import software.amazon.awscdk.services.codepipeline.actions.GitHubSourceAction;
 import software.amazon.awscdk.services.codepipeline.actions.GitHubTrigger;
-import software.amazon.awscdk.services.eks.KubernetesResource;
 import software.amazon.awscdk.services.iam.Effect;
 import software.amazon.awscdk.services.iam.PolicyStatement;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 
 import static java.util.Arrays.asList;
@@ -35,7 +33,8 @@ public class CicdPipelineCdkStack extends Stack {
 
         var springCodeSourceOutput = new Artifact();
         var cdkCodeSourceOutput = new Artifact();
-        var cdkBuildOutput = new Artifact("CdkBuildOutput");
+        var springCodeBuildOutput = new Artifact("spring-codeoutput");
+        var cdkCodeBuildOutput = new Artifact("cdk-codeoutput");
 
         var springCodeSourceAction = GitHubSourceAction.Builder.create()
                 .actionName("twitch-spring-microservice-source")
@@ -67,9 +66,9 @@ public class CicdPipelineCdkStack extends Stack {
                 .actions(asList(springCodeSourceAction, cdkCodeSourceAction))
                 .build();
 
-        /* BUILD */
+        /* Spring BUILD */
 
-        var buildEnvironment = new BuildEnvironment.Builder()
+        var springCodeBuildEnvironment = new BuildEnvironment.Builder()
                 .buildImage(LinuxBuildImage.AMAZON_LINUX_2_3)
                 .computeType(ComputeType.SMALL)
                 .privileged(true)
@@ -92,47 +91,74 @@ public class CicdPipelineCdkStack extends Stack {
                                 .build()))
                 .build();
 
-        PipelineProject codeBuildProject = PipelineProject.Builder.create(this,"twitchms-codebuild")
+        PipelineProject springCodeBuildProject = PipelineProject.Builder.create(this,"spring-codebuild")
                 .projectName("twitch-spring-microservice-codebuild")
-                .environment(buildEnvironment)
+                .environment(springCodeBuildEnvironment)
                 .build();
 
-        codeBuildProject.addToRolePolicy(PolicyStatement.Builder.create()
+        springCodeBuildProject.addToRolePolicy(PolicyStatement.Builder.create()
                 .effect(Effect.ALLOW)
                 .actions(asList("ecr:*", "cloudtrail:LookupEvents"))
                 .resources(asList("*"))
                 .build());
 
-        PipelineProject cdkBuildProject = PipelineProject.Builder.create(this, "cdkBuildProject")
-                .projectName("cdkBuildProject")
-                .environment(buildEnvironment)
+        var springBuildAction = CodeBuildAction.Builder.create()
+                .actionName("CodeBuild")
+                .project(springCodeBuildProject)
+                .input(springCodeSourceOutput)
+                .outputs(asList(springCodeBuildOutput))
                 .build();
 
-        var buildAction = CodeBuildAction.Builder.create()
-                .actionName("CodeBuild")
-                .project(codeBuildProject)
-                .input(springCodeSourceOutput)
-                .outputs(asList(new Artifact()))
+
+
+        var springCodeBuildStage = StageOptions
+                .builder()
+                .stageName("spring-code-build")
+                .actions(asList(springBuildAction))
+                .build();
+
+        /* CDK BUILD */
+        var springCodeArtifactPath = springCodeBuildOutput.atPath("pom.properties");
+        System.out.println("springCodeArtifactPath"+springCodeArtifactPath.getFileName()+"<>"+springCodeArtifactPath.getLocation()+"<>"+springCodeArtifactPath.toString());
+
+        var cdkCodeBuildEnvironment = new BuildEnvironment.Builder()
+                .buildImage(LinuxBuildImage.AMAZON_LINUX_2_3)
+                .computeType(ComputeType.SMALL)
+                .privileged(true)
+                .environmentVariables(Map.of(
+                        "TWITCH_MS_IMAGE_TAG",BuildEnvironmentVariable.builder()
+                                .type(BuildEnvironmentVariableType.PLAINTEXT)
+                                .value("1.0-RELEASE") //todo
+                                .build(),
+                        "SPRING_CODE_ARTIFACT_PATH",BuildEnvironmentVariable.builder()
+                                .type(BuildEnvironmentVariableType.PLAINTEXT)
+                                .value(springCodeArtifactPath.getLocation())
+                                .build()))
+                .build();
+
+        PipelineProject cdkBuildProject = PipelineProject.Builder.create(this, "cdk-codebuild")
+                .projectName("cdkBuildProject")
+                .environment(cdkCodeBuildEnvironment)
                 .build();
 
         var cdkBuildAction = CodeBuildAction.Builder.create()
                 .actionName("cdkBuildAction")
                 .project(cdkBuildProject)
                 .input(cdkCodeSourceOutput)
-                .outputs(Arrays.asList(cdkBuildOutput))
+                .outputs(Arrays.asList(cdkCodeBuildOutput))
                 .build();
 
-        var buildStage = StageOptions
+        var cdkCodeBuildStage = StageOptions
                 .builder()
-                .stageName("build")
-                .actions(asList(buildAction, cdkBuildAction))
+                .stageName("cdk-code-build")
+                .actions(asList(cdkBuildAction))
                 .build();
 
         /* DEPLOY */
 
         var deployAction = CloudFormationCreateUpdateStackAction.Builder.create()
                 .actionName("Kubernetes_Resource_Deploy")
-                .templatePath(cdkBuildOutput.atPath("KubernetesResourceCdkStack.template.json"))
+                .templatePath(cdkCodeBuildOutput.atPath("KubernetesResourceCdkStack.template.json"))
                 .adminPermissions(true)
                 .stackName("KubernetesResourceDeploymentStack")
                 .build();
@@ -144,7 +170,8 @@ public class CicdPipelineCdkStack extends Stack {
                 .build();
 
         pipeline.addStage(sourceStage);
-        pipeline.addStage(buildStage);
+        pipeline.addStage(springCodeBuildStage);
+        pipeline.addStage(cdkCodeBuildStage);
         pipeline.addStage(deployStage);
     }
 }

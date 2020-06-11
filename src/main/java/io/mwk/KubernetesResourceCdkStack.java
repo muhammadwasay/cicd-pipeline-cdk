@@ -20,15 +20,25 @@ public class KubernetesResourceCdkStack extends Stack {
     public KubernetesResourceCdkStack(final Construct scope, final String id, final StackProps props) {
         super(scope, id, props);
 
-        var demoEksClusterARN = "";
+        var imageTag = "";
+        var imageTagEnvProperty = "TWITCH_MS_IMAGE_TAG";
+        Map<String, String> env = System.getenv();
+        for (String envName : env.keySet()) {
+            if(envName.equals(imageTagEnvProperty)){
+                imageTag = env.get(envName);
+            }
+        }
+        System.out.format("%s=%s%n", imageTagEnvProperty, env.get(imageTag));
+
+        var demoEksClusterARN = "arn:aws:eks:us-east-1:481137230390:cluster/demoekscluster1190CA3C-001efee7020b42fd930dc360002a46d8";
         var latestTwitchMicroserviceImage = "481137230390.dkr.ecr.us-east-1.amazonaws.com/java-twitch-integration:latest";
         var twitchAppClientId = "djso1368ggr0fmbxgpijy0pxhsw712";
-        String twitchAppClientSecret = SecretValue.secretsManager("arn:aws:secretsmanager:us-east-1:481137230390:secret:twitchAppClientSecret-BoUOUB",
+        var twitchAppClientSecret = "gp807tyjhao85g86z3269qvq06g6zw";
+        /*String twitchAppClientSecret = SecretValue.secretsManager("arn:aws:secretsmanager:us-east-1:481137230390:secret:twitchAppClientSecret-BoUOUB",
                 SecretsManagerSecretOptions.builder()
                         .jsonField("appsecret")
                         .build())
-                .toString();
-        var cluster = (Cluster) Cluster.fromClusterAttributes(this,"demo-eks-cluster", ClusterAttributes.builder().clusterArn(demoEksClusterARN).build());
+                .toString();*/
 
         Map<String, String> appLabel = Map.of("app", "twitch-ms");
 
@@ -60,10 +70,14 @@ public class KubernetesResourceCdkStack extends Stack {
                         "ports", asList(Map.of("port", 80, "targetPort", 8080)),
                         "selector", appLabel));
 
-        kubernetesResource = KubernetesResource.Builder.create(this, "twitch-microservice")
+        var cluster = (Cluster) Cluster.fromClusterAttributes(this,"demo-eks-cluster", ClusterAttributes.builder().clusterArn(demoEksClusterARN).build());
+
+        cluster.addResource("twitch-microservice", deployment, service);
+
+        /*kubernetesResource = KubernetesResource.Builder.create(this, "twitch-microservice")
                 .cluster(cluster)
                 .manifest(asList(deployment, service))
-                .build();
+                .build();*/
     }
 
     public KubernetesResource getKubernetesResource() {
