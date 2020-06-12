@@ -51,7 +51,7 @@ public class CicdPipelineCdkStack extends Stack {
         var cdkCodeSourceAction = GitHubSourceAction.Builder.create()
                 .actionName("kubernetes-resource-source")
                 .owner("muhammadwasay")
-                .repo("cicd-pipeline-cdk")
+                .repo("eks-cdk-demo")
                 .oauthToken(SecretValue.secretsManager("arn:aws:secretsmanager:us-east-1:481137230390:secret:mwk-github-repo-access-token-JifB2P",
                         SecretsManagerSecretOptions.builder().jsonField("token").build()))
                 .output(cdkCodeSourceOutput)
@@ -118,6 +118,7 @@ public class CicdPipelineCdkStack extends Stack {
                 .build();
 
         /* CDK BUILD */
+
         var springCodeArtifactPath = springCodeBuildOutput.atPath("pom.properties");
         System.out.println("springCodeArtifactPath"+springCodeArtifactPath.getFileName()+"<>"+springCodeArtifactPath.getLocation()+"<>"+springCodeArtifactPath.toString());
 
@@ -158,7 +159,7 @@ public class CicdPipelineCdkStack extends Stack {
 
         var deployAction = CloudFormationCreateUpdateStackAction.Builder.create()
                 .actionName("Kubernetes_Resource_Deploy")
-                .templatePath(cdkCodeBuildOutput.atPath("KubernetesResourceCdkStack.template.json"))
+                .templatePath(cdkCodeBuildOutput.atPath("EksCdkStack.template.json"))
                 .adminPermissions(true)
                 .stackName("KubernetesResourceDeploymentStack")
                 .build();
